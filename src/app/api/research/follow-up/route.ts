@@ -83,9 +83,10 @@ Supported chart types are "bar", "area", "line", and "pie".
 
     const encoder = new TextEncoder();
 
+    let isClosed = false;
+
     const stream = new ReadableStream({
       async start(controller) {
-        let isClosed = false;
 
         const sendChunk = (text: string) => {
           if (isClosed) return;

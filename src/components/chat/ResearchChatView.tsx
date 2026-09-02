@@ -445,8 +445,8 @@ export const ResearchChatView: React.FC<ResearchChatViewProps> = ({
       let pendingSteps: AgentStep[] = [];
       let pendingSources: Source[] = [];
       let pendingFindings: ResearchFindings | undefined;
-      let pendingAgent: string = "researcher";
-      let pendingStatus: string = "researching";
+      let pendingAgent: AgentType | "completed" | "idle" | undefined = "researcher";
+      let pendingStatus: "researching" | "completed" | "failed" | undefined = "researching";
       let pendingError: string | undefined;
       let rafScheduled = false;
       let needsFlush = false;

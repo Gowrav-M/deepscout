@@ -82,8 +82,8 @@ function markdownToPrintHtml(markdown: string): string {
   html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<li class="report-li-num"><span class="num-badge">$1</span><div class="li-content">$2</div></li>');
 
   // Wrap consecutive <li> into <ul>
-  html = html.replace(/((?:<li class="report-li">.*?<\/li>\s*)+)/gis, '<ul class="report-ul">$1</ul>');
-  html = html.replace(/((?:<li class="report-li-num">.*?<\/li>\s*)+)/gis, '<ol class="report-ol">$1</ol>');
+  html = html.replace(/((?:<li class="report-li">[\s\S]*?<\/li>\s*)+)/gi, '<ul class="report-ul">$1</ul>');
+  html = html.replace(/((?:<li class="report-li-num">[\s\S]*?<\/li>\s*)+)/gi, '<ol class="report-ol">$1</ol>');
 
   // Paragraphs
   const blocks = html.split(/\n\s*\n/);

@@ -591,7 +591,7 @@ export async function streamNvidiaLLM(
     let insideThink = false;
     let tagBuffer = ""; // Accumulates partial tag fragments across chunks
 
-    for await (const chunk of stream) {
+    for await (const chunk of (stream as any)) {
       const delta = chunk.choices[0]?.delta?.content || "";
       if (!delta) continue;
 
