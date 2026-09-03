@@ -10,16 +10,99 @@ export interface PDFExportOptions {
 }
 
 /**
+ * Renders an executive graphical chart card with proportional visual bars and structured summary table
+ */
+function renderChartBlockToHtml(rawJson: string): string {
+  try {
+    const cleanJson = rawJson.trim();
+    const parsed = JSON.parse(cleanJson);
+    const title = parsed.title || "Empirical Trend & Market Visualization";
+    const desc = parsed.description || "";
+    const type = (parsed.type || "bar").toUpperCase();
+    const xKey = parsed.xKey || "Category";
+    const yKey = parsed.yKey || "Value";
+    const unit = parsed.unit ? ` (${parsed.unit})` : "";
+    const data: any[] = Array.isArray(parsed.data) ? parsed.data : [];
+
+    let maxVal = 0;
+    data.forEach((d) => {
+      const v = Number(d[yKey]) || 0;
+      if (v > maxVal) maxVal = v;
+    });
+    if (maxVal <= 0) maxVal = 1;
+
+    const barRows = data
+      .map((d) => {
+        const label = String(d[xKey] ?? "");
+        const numVal = Number(d[yKey]) || 0;
+        const pct = Math.min(100, Math.max(5, Math.round((numVal / maxVal) * 100)));
+        const displayVal = isNaN(numVal) ? String(d[yKey] ?? "") : numVal.toLocaleString();
+
+        return `
+          <div class="chart-bar-row">
+            <div class="chart-bar-label">${label}</div>
+            <div class="chart-bar-track">
+              <div class="chart-bar-fill" style="width: ${pct}%;"></div>
+            </div>
+            <div class="chart-bar-val">${displayVal}${parsed.unit ? " " + parsed.unit : ""}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const tableHeaders = `<th>${xKey}</th><th>${yKey}${unit}</th>`;
+    const tableRows = data
+      .map((d) => {
+        const numVal = Number(d[yKey]);
+        const displayVal = !isNaN(numVal) ? numVal.toLocaleString() : String(d[yKey] ?? "");
+        return `<tr><td style="font-weight: 600;">${d[xKey]}</td><td style="color: #0284c7; font-weight: 700; font-family: 'JetBrains Mono', monospace;">${displayVal}${parsed.unit ? " " + parsed.unit : ""}</td></tr>`;
+      })
+      .join("");
+
+    return `
+      <div class="chart-print-card">
+        <div class="chart-print-header">
+          <div class="chart-print-title">
+            <span class="chart-icon-badge">📊</span>
+            <span>${title}</span>
+          </div>
+          <span class="chart-type-pill">${type} ANALYSIS</span>
+        </div>
+        ${desc ? `<div class="chart-print-desc">${desc}</div>` : ""}
+        <div class="chart-bar-list">
+          ${barRows}
+        </div>
+        <div class="chart-mini-table-wrapper">
+          <table class="chart-mini-table">
+            <thead><tr>${tableHeaders}</tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  } catch (e) {
+    return `<div class="chart-print-card"><div class="chart-print-desc" style="font-family: monospace; font-size: 11px;">[Visual Chart Block: ${rawJson.slice(0, 120)}...]</div></div>`;
+  }
+}
+
+/**
  * Converts markdown text into rich, beautifully styled HTML for executive print/PDF
  */
 function markdownToPrintHtml(markdown: string): string {
   let html = markdown;
 
-  // Escape basic HTML entities in text (except intentional tags)
-  html = html
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  // 1. Process ```chart or ```json:chart blocks first before HTML entity conversion
+  html = html.replace(/```(?:chart|json:chart)\s*\r?\n([\s\S]*?)```/gi, (_, jsonContent) => {
+    return renderChartBlockToHtml(jsonContent);
+  });
+
+  // 2. Process standard code blocks ```lang ... ```
+  html = html.replace(/```(?:[a-zA-Z0-9_-]+)?\s*\r?\n([\s\S]*?)```/gi, (_, code) => {
+    return `<pre class="report-code-block"><code>${code.trim()}</code></pre>`;
+  });
+
+  // 3. Inline code `code`
+  html = html.replace(/`([^`\n]+)`/g, '<code class="report-inline-code">$1</code>');
 
   // Format Tables: find consecutive table rows
   const tableRegex = /((?:\|[^\n]+\|\r?\n)+)/g;
@@ -96,6 +179,8 @@ function markdownToPrintHtml(markdown: string): string {
         trimmed.startsWith("<h2") ||
         trimmed.startsWith("<h3") ||
         trimmed.startsWith("<div class=\"table-wrapper") ||
+        trimmed.startsWith("<div class=\"chart-print-card") ||
+        trimmed.startsWith("<pre") ||
         trimmed.startsWith("<ul") ||
         trimmed.startsWith("<ol") ||
         trimmed.startsWith("<blockquote") ||
@@ -629,6 +714,142 @@ export function exportResearchToPDF({
       background-color: #f1f5f9;
     }
 
+    /* Executive Visual Data Cards (Charts) */
+    .chart-print-card {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 18px 22px;
+      margin: 22px 0;
+      page-break-inside: avoid;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .chart-print-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .chart-print-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .chart-icon-badge {
+      font-size: 15px;
+    }
+    .chart-type-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: #0284c7;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+    }
+    .chart-print-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+    .chart-bar-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .chart-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+    }
+    .chart-bar-label {
+      width: 110px;
+      font-weight: 600;
+      color: #334155;
+      text-align: right;
+      flex-shrink: 0;
+      font-family: 'JetBrains Mono', monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chart-bar-track {
+      flex: 1;
+      height: 16px;
+      background: #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+    .chart-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
+      border-radius: 6px;
+      transition: width 0.3s ease;
+    }
+    .chart-bar-val {
+      min-width: 90px;
+      font-weight: 700;
+      color: #0284c7;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      text-align: left;
+    }
+    .chart-mini-table-wrapper {
+      margin-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 12px;
+    }
+    .chart-mini-table {
+      width: 100%;
+      font-size: 11px;
+    }
+    .chart-mini-table th {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 10px;
+      padding: 6px 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      border-bottom: 1px solid #cbd5e1;
+    }
+    .chart-mini-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    /* Code Blocks */
+    .report-code-block {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 14px 18px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      overflow-x: auto;
+      margin: 16px 0;
+      page-break-inside: avoid;
+      border: 1px solid #1e293b;
+    }
+    .report-inline-code {
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      border: 1px solid #e2e8f0;
+    }
+
     /* Citation Pills */
     .citation-pill {
       display: inline-block;
@@ -836,8 +1057,8 @@ export function exportResearchToPDF({
     <header class="report-hero">
       <div class="hero-top-strip">
         <div class="brand-cluster">
-          <div class="brand-logo-badge">R</div>
-          <span class="brand-name">Personal Research Assistant</span>
+          <div class="brand-logo-badge" style="background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%); color: #ffffff; font-weight: 900;">D</div>
+          <span class="brand-name">DeepScout</span>
         </div>
         <span class="confidential-stamp">AUTONOMOUS MULTI-AGENT DOSSIER</span>
       </div>
@@ -980,8 +1201,8 @@ export function exportResearchToPDF({
     <!-- Executive Footer -->
     <footer class="report-footer">
       <div class="footer-left">
-        <span class="footer-stamp">PERSONAL RESEARCH ASSISTANT</span>
-        <span>• Autonomous Multi-Agent Synthesis Pipeline</span>
+        <span class="footer-stamp">DEEPSCOUT</span>
+        <span>• Autonomous Multi-Agent Research Engine</span>
       </div>
       <div>Page 1 of Dossier • Grounded via Tavily Web Search</div>
     </footer>
