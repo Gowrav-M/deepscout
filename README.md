@@ -180,6 +180,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 **DeepScout** — Autonomous Research Engineered For Truth
 
-Made with 🧠 by [Gowrav-M](https://github.com/Gowrav-M)
+Made with 🧠 by Manojgowda12
 
 </div>
